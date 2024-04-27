@@ -1,0 +1,12 @@
+There are only two hard things in Computer Science: cache invalidation and naming things.
+        -- Phil Karlton
+------------------------------
+We trust you have received the usual lecture from the local System Administrator. It usually boils down to these three things:
+    #1) Respect the privacy of others.
+    #2) Think before you type.
+    #3) With great power comes great responsibility.
+        -- Todd C. Miller, in Linux program 'sudo'
+------------------------------
+Date and time formats cause a lot of confusion and interoperability
+problems on the Internet.
+        -- RFC 3339

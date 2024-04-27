@@ -1,0 +1,13 @@
+[package]
+name = "rqotdd"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.4", features = ["derive"] }
+futures = "0.3.30"
+rand = "0.8.5"
+rustls = { version = "0.23.5", features = ["ring", "tls12", "std"], default-features = false }
+rustls-pemfile = "2.1.2"
+tokio = { version = "1.37.0", features = ["net", "fs", "macros", "io-std", "io-util", "rt", "rt-multi-thread"] }
+tokio-rustls = { version = "0.26.0", default-features = false, features = ["ring", "tls12"] }

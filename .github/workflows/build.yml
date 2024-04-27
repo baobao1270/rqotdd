@@ -1,0 +1,85 @@
+name: Build & Release
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+    branches:
+    - main
+permissions:
+  contents: write
+
+jobs:
+  build-darwin:
+    name: Build for macOS (Native)
+    strategy:
+      matrix:
+        runs-on:
+          - macos-13
+          - macos-14
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Rust
+        run:  rustup update
+      - name: Build
+        run:  make all
+      - name: Test Build Target Executable
+        run: |
+          brew install tree
+          tree dist
+          TMPDIR=$(mktemp -d)
+          ARCHIVE_FILE=rqotdd-darwin-$(./scripts/native-arch.sh).tar.zst
+          tar -C $TMPDIR -xvf dist/$ARCHIVE_FILE
+          file   $TMPDIR/rqotdd
+          $TMPDIR/rqotdd --help
+          $TMPDIR/rqotdd --version
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-darwin-${{ matrix.runs-on }}
+          path: dist/*.tar.zst
+  build-linux-musl:
+    name: Build for Linux (MUSL Cross)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Rust
+        run:  rustup update
+      - name: Build
+        run:  make all
+      - name: Test Build Target Executable
+        run: |
+          for f in dist/*.tar.zst; do
+            TMPDIR=$(mktemp -d)
+            tar -C $TMPDIR -xvf $f
+            file   $TMPDIR/rqotdd
+          done
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-linux-musl
+          path: dist/*.tar.zst
+  release:
+    if: github.ref_type == 'tag'
+    name: Release
+    needs: [build-darwin, build-linux-musl]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Get Release Version
+        id:   release-version
+        run:  echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+      - name: Create Release
+        run:  gh release create ${{ steps.release-version.outputs.tag }} *.tar.zst
+        env:
+          GH_TOKEN: ${{ github.token }}
