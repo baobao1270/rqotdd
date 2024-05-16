@@ -64,6 +64,70 @@ jobs:
         with:
           name: artifact-linux-musl
           path: dist/*.tar.zst
+  docker:
+    name: Build & Push Docker Image
+    needs: [build-linux-musl]
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: josephcz
+      DOCKER_IMAGE:    rqotdd
+      DOCKER_REGISTRY: josephcz/rqotdd
+      DOCKER_TOKEN:    ${{ secrets.DOCKER_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: artifact-linux-musl
+          merge-multiple: true
+      - name: Uncompress Artifacts
+        run: |
+          for path in dist/*.tar.zst; do
+            arch=$(basename $path .tar.zst)
+            arch=${arch##*-}
+            case $arch in
+              x86_64)  platform=amd64 ;;
+              i686)    platform=386   ;;
+              aarch64) platform=arm64 ;;
+            esac
+            mkdir     dist/$platform
+            tar -C    dist/$platform -xvf $path
+            file      dist/$platform/rqotdd
+          done
+          tree dist
+      - name: Get Docker Tag
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            TAG=$(git describe --tags --abbrev=0)
+            DOCKER_TAG=$DOCKER_REGISTRY:$TAG,$DOCKER_REGISTRY:latest
+            echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+          else
+            COMMIT=$(git rev-parse --short HEAD)
+            TAG=commit-$COMMIT
+            DOCKER_TAG=$DOCKER_REGISTRY:$TAG,$DOCKER_REGISTRY:latest-dev
+            echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+          fi
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_TOKEN }}
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        env:
+          DOCKER_BUILDKIT: "1"
+        with:
+          context:   .
+          file:      Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/386
+          push:      true
+          tags:      ${{ env.DOCKER_TAG }}
   release:
     if: github.ref_type == 'tag'
     name: Release
