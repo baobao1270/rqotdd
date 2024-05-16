@@ -139,11 +139,18 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
+          path: dist
           merge-multiple: true
       - name: Get Release Version
         id:   release-version
         run:  echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+      - name: Calculate SHA-256 Checksum
+        run: |
+          cd dist
+          for path in *.tar.zst; do
+            sha256sum $path > $path.sha256sum
+          done
       - name: Create Release
-        run:  gh release create ${{ steps.release-version.outputs.tag }} *.tar.zst
+        run:  gh release create ${{ steps.release-version.outputs.tag }} dist/*
         env:
           GH_TOKEN: ${{ github.token }}
